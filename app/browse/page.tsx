@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Filter } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import CameraCard from '@/components/stream/CameraCard';
@@ -20,15 +20,7 @@ export default function BrowsePage() {
 
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchCameras();
-  }, []);
-
-  useEffect(() => {
-    filterCameras();
-  }, [cameras, searchQuery, selectedRegion, selectedAnimalType]);
-
-  const fetchCameras = async () => {
+  const fetchCameras = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('cameras')
@@ -42,9 +34,9 @@ export default function BrowsePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase]);
 
-  const filterCameras = () => {
+  const filterCameras = useCallback(() => {
     let filtered = cameras;
 
     if (searchQuery) {
@@ -65,7 +57,15 @@ export default function BrowsePage() {
     }
 
     setFilteredCameras(filtered);
-  };
+  }, [cameras, searchQuery, selectedRegion, selectedAnimalType]);
+
+  useEffect(() => {
+    fetchCameras();
+  }, [fetchCameras]);
+
+  useEffect(() => {
+    filterCameras();
+  }, [filterCameras]);
 
   const clearFilters = () => {
     setSearchQuery('');

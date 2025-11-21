@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { Send } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { ChatMessage } from '@/types';
+import { Database } from '@/types/database';
 import { useUser } from '@/components/layout/UserProvider';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,16 +23,7 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
   const { user } = useUser();
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchMessages();
-    subscribeToMessages();
-  }, [cameraId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('chat_messages')
@@ -48,9 +41,9 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
-  };
+  }, [cameraId, supabase]);
 
-  const subscribeToMessages = () => {
+  const subscribeToMessages = useCallback(() => {
     const channel = supabase
       .channel(`chat:${cameraId}`)
       .on(
@@ -81,7 +74,17 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  };
+  }, [cameraId, supabase]);
+
+  useEffect(() => {
+    fetchMessages();
+    const cleanup = subscribeToMessages();
+    return cleanup;
+  }, [fetchMessages, subscribeToMessages]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,11 +99,13 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.from('chat_messages').insert({
+      const messageData: Database['public']['Tables']['chat_messages']['Insert'] = {
         camera_id: cameraId,
         user_id: user.id,
         message: newMessage.trim(),
-      });
+      };
+      // @ts-expect-error - Supabase client type inference issue with insert
+      const { error } = await supabase.from('chat_messages').insert(messageData);
 
       if (error) throw error;
 
@@ -132,10 +137,12 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
             <div key={message.id} className="flex gap-3">
               <div className="flex-shrink-0">
                 {message.user?.avatar_url ? (
-                  <img
+                  <Image
                     src={message.user.avatar_url}
                     alt={message.user.full_name || 'User'}
-                    className="w-8 h-8 rounded-full"
+                    width={32}
+                    height={32}
+                    className="rounded-full"
                   />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-nature-500 flex items-center justify-center text-white text-sm font-semibold">

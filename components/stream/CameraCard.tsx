@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card } from '@/components/ui/Card';
 import { Eye, MapPin, Heart } from 'lucide-react';
 import { Camera as CameraType } from '@/types';
@@ -16,10 +17,11 @@ export default function CameraCard({ camera, isFavorite }: CameraCardProps) {
       <Card hover className="overflow-hidden group">
         {/* Thumbnail */}
         <div className="relative aspect-video bg-earth-900 overflow-hidden">
-          <img
+          <Image
             src={thumbnailUrl}
             alt={camera.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
 
           {/* Live Badge */}

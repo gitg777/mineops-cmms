@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { Region, AnimalType } from '@/types';
+import { Database } from '@/types/database';
 import toast from 'react-hot-toast';
 import { useUser } from '@/components/layout/UserProvider';
 
@@ -33,7 +34,7 @@ export default function AddCameraForm() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.from('cameras').insert({
+      const cameraData: Database['public']['Tables']['cameras']['Insert'] = {
         creator_id: user.id,
         name: formData.name,
         description: formData.description,
@@ -42,8 +43,10 @@ export default function AddCameraForm() {
         animal_type: formData.animal_type,
         rtmp_url: formData.rtmp_url,
         booking_url: formData.booking_url || null,
-        status: 'pending' as const,
-      } as any);
+        status: 'pending',
+      };
+      // @ts-expect-error - Supabase client type inference issue with insert
+      const { error } = await supabase.from('cameras').insert(cameraData);
 
       if (error) throw error;
 
