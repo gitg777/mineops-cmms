@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { createClient } from "@/lib/supabase/server";
 import HeaderWrapper from "@/components/layout/HeaderWrapper";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
@@ -31,31 +30,13 @@ export const metadata: Metadata = {
   },
 };
 
-async function getUser() {
-  try {
-    const supabase = await createClient();
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-
-    if (!authUser) return null;
-
-    const { data: user } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authUser.id)
-      .single();
-
-    return user;
-  } catch {
-    return null;
-  }
-}
-
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getUser();
+  // User will be fetched client-side via Firebase auth listener
+  const user = null;
 
   return (
     <html lang="en" suppressHydrationWarning>

@@ -1,44 +1,43 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Heart } from 'lucide-react';
 import CameraCard from '@/components/stream/CameraCard';
-import { Camera } from '@/types';
+import { FavoriteCamera } from '@/types';
+import { useUser } from '@/components/layout/UserProvider';
+import { getFavorites } from '@/lib/firebase/firestore';
 
-async function getUser() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export default function FavoritesPage() {
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+  const [favorites, setFavorites] = useState<FavoriteCamera[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!user) {
-    redirect('/auth/login');
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
+
+    if (user) {
+      getFavorites(user.id)
+        .then(setFavorites)
+        .finally(() => setIsLoading(false));
+    }
+  }, [user, userLoading, router]);
+
+  if (userLoading || isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
   }
 
-  return user;
-}
-
-interface FavoriteWithCamera {
-  id: string;
-  created_at: string;
-  camera: Camera | null;
-}
-
-async function getFavoriteCameras(userId: string): Promise<FavoriteWithCamera[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('favorite_cameras')
-    .select(`
-      id,
-      created_at,
-      camera:cameras(*)
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  return (data as FavoriteWithCamera[]) || [];
-}
-
-export default async function FavoritesPage() {
-  const user = await getUser();
-  const favorites = await getFavoriteCameras(user.id);
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

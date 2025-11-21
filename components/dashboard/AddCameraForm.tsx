@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { addCamera } from '@/lib/firebase/firestore';
 import { Region, AnimalType } from '@/types';
-import { Database } from '@/types/database';
 import toast from 'react-hot-toast';
 import { useUser } from '@/components/layout/UserProvider';
 
@@ -25,7 +24,6 @@ export default function AddCameraForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useUser();
   const router = useRouter();
-  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +32,7 @@ export default function AddCameraForm() {
     setIsLoading(true);
 
     try {
-      const cameraData: Database['public']['Tables']['cameras']['Insert'] = {
+      await addCamera({
         creator_id: user.id,
         name: formData.name,
         description: formData.description,
@@ -42,13 +40,14 @@ export default function AddCameraForm() {
         region: formData.region,
         animal_type: formData.animal_type,
         rtmp_url: formData.rtmp_url,
+        cloudflare_stream_id: null,
+        thumbnail_url: null,
         booking_url: formData.booking_url || null,
         status: 'pending',
-      };
-      // @ts-expect-error - Supabase client type inference issue with insert
-      const { error } = await supabase.from('cameras').insert(cameraData);
-
-      if (error) throw error;
+        featured: false,
+        viewer_count: 0,
+        total_views: 0,
+      });
 
       toast.success('Camera submitted for approval!');
       setFormData({

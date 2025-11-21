@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Send } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { getChatMessages, addChatMessage, subscribeToChatMessages } from '@/lib/firebase/firestore';
 import { ChatMessage } from '@/types';
-import { Database } from '@/types/database';
 import { useUser } from '@/components/layout/UserProvider';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,66 +20,16 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useUser();
-  const supabase = createClient();
-
-  const fetchMessages = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('chat_messages')
-        .select(`
-          *,
-          user:users(id, full_name, avatar_url)
-        `)
-        .eq('camera_id', cameraId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (data) {
-        setMessages(data.reverse());
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    }
-  }, [cameraId, supabase]);
-
-  const subscribeToMessages = useCallback(() => {
-    const channel = supabase
-      .channel(`chat:${cameraId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `camera_id=eq.${cameraId}`,
-        },
-        async (payload) => {
-          const { data } = await supabase
-            .from('chat_messages')
-            .select(`
-              *,
-              user:users(id, full_name, avatar_url)
-            `)
-            .eq('id', payload.new.id)
-            .single();
-
-          if (data) {
-            setMessages((prev) => [...prev, data]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [cameraId, supabase]);
 
   useEffect(() => {
-    fetchMessages();
-    const cleanup = subscribeToMessages();
-    return cleanup;
-  }, [fetchMessages, subscribeToMessages]);
+    // Initial fetch
+    getChatMessages(cameraId).then(setMessages);
+
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToChatMessages(cameraId, setMessages);
+
+    return () => unsubscribe();
+  }, [cameraId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -99,16 +48,7 @@ export default function StreamChat({ cameraId }: StreamChatProps) {
     setIsLoading(true);
 
     try {
-      const messageData: Database['public']['Tables']['chat_messages']['Insert'] = {
-        camera_id: cameraId,
-        user_id: user.id,
-        message: newMessage.trim(),
-      };
-      // @ts-expect-error - Supabase client type inference issue with insert
-      const { error } = await supabase.from('chat_messages').insert(messageData);
-
-      if (error) throw error;
-
+      await addChatMessage(cameraId, user.id, newMessage.trim());
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);

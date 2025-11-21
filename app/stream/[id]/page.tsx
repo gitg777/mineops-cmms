@@ -4,53 +4,14 @@ import { Eye, MapPin, Heart, ExternalLink, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import VideoPlayer from '@/components/stream/VideoPlayer';
 import StreamChat from '@/components/stream/StreamChat';
-import { createClient } from '@/lib/supabase/server';
-import { Camera, Alert } from '@/types';
-
-async function getCamera(id: string): Promise<Camera | null> {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from('cameras')
-      .select(`
-        *,
-        creator:users(id, full_name)
-      `)
-      .eq('id', id)
-      .eq('status', 'active')
-      .single();
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching camera:', error);
-    return null;
-  }
-}
-
-async function getActiveAlerts(cameraId: string): Promise<Alert[]> {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from('alerts')
-      .select('*')
-      .eq('camera_id', cameraId)
-      .eq('is_active', true)
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-      .order('created_at', { ascending: false })
-      .limit(3);
-
-    return (data as Alert[]) || [];
-  } catch (error) {
-    console.error('Error fetching alerts:', error);
-    return [];
-  }
-}
+import { getCamera, getActiveAlerts } from '@/lib/firebase/firestore';
+// Types are inferred from the Firestore functions
 
 export default async function StreamPage({ params }: { params: { id: string } }) {
   const camera = await getCamera(params.id);
-  const alerts = await getActiveAlerts(params.id);
+  const alerts = camera ? await getActiveAlerts(params.id) : [];
 
-  if (!camera) {
+  if (!camera || camera.status !== 'active') {
     notFound();
   }
 

@@ -1,46 +1,37 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Camera as CameraIcon, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
 import AddCameraForm from '@/components/dashboard/AddCameraForm';
 import CameraAnalytics from '@/components/dashboard/CameraAnalytics';
-import { Camera, User } from '@/types';
+import { Camera } from '@/types';
+import { useUser } from '@/components/layout/UserProvider';
+import { getCameras } from '@/lib/firebase/firestore';
 
-async function getUser(): Promise<User> {
-  const supabase = await createClient();
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+export default function CreatorDashboardPage() {
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!authUser) {
-    redirect('/auth/login');
-  }
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', authUser.id)
-    .single();
+    if (!userLoading && user && user.role !== 'creator' && user.role !== 'admin') {
+      router.push('/');
+      return;
+    }
 
-  const typedUser = user as unknown as User;
-  if (!typedUser || (typedUser.role !== 'creator' && typedUser.role !== 'admin')) {
-    redirect('/');
-  }
-
-  return typedUser;
-}
-
-async function getUserCameras(userId: string): Promise<Camera[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('cameras')
-    .select('*')
-    .eq('creator_id', userId)
-    .order('created_at', { ascending: false });
-
-  return data || [];
-}
-
-export default async function CreatorDashboardPage() {
-  const user = await getUser();
-  const cameras = await getUserCameras(user.id);
+    if (user && (user.role === 'creator' || user.role === 'admin')) {
+      getCameras({ creatorId: user.id, orderByField: 'created_at', orderDirection: 'desc' })
+        .then(setCameras)
+        .finally(() => setIsLoading(false));
+    }
+  }, [user, userLoading, router]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -69,6 +60,18 @@ export default async function CreatorDashboardPage() {
       </span>
     );
   };
+
+  if (userLoading || isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -108,7 +111,7 @@ export default async function CreatorDashboardPage() {
                           {camera.name}
                         </h3>
                         <p className="text-sm text-earth-600 dark:text-earth-400">
-                          {camera.lodge_name} • {camera.region}
+                          {camera.lodge_name} - {camera.region}
                         </p>
                       </div>
                       {getStatusBadge(camera.status)}

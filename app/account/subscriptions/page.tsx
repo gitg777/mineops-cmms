@@ -1,38 +1,31 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { Subscription } from '@/types';
+import { useUser } from '@/components/layout/UserProvider';
+import { getSubscriptions } from '@/lib/firebase/firestore';
 
-async function getUser() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export default function SubscriptionsPage() {
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!user) {
-    redirect('/auth/login');
-  }
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
 
-  return user;
-}
-
-async function getSubscriptions(userId: string): Promise<Subscription[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('subscriptions')
-    .select(`
-      *,
-      camera:cameras(name, lodge_name)
-    `)
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false });
-
-  return (data as Subscription[]) || [];
-}
-
-export default async function SubscriptionsPage() {
-  const user = await getUser();
-  const subscriptions = await getSubscriptions(user.id);
+    if (user) {
+      getSubscriptions(user.id)
+        .then(setSubscriptions)
+        .finally(() => setIsLoading(false));
+    }
+  }, [user, userLoading, router]);
 
   const plans = [
     {
@@ -63,6 +56,18 @@ export default async function SubscriptionsPage() {
       ],
     },
   ];
+
+  if (userLoading || isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">

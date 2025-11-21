@@ -1,32 +1,32 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { User as UserIcon, Mail, Shield } from 'lucide-react';
 import Button from '@/components/ui/Button';
-import { User } from '@/types';
+import { useUser } from '@/components/layout/UserProvider';
 
-async function getUser(): Promise<User> {
-  const supabase = await createClient();
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+export default function AccountPage() {
+  const { user, isLoading } = useUser();
+  const router = useRouter();
 
-  if (!authUser) {
-    redirect('/auth/login');
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/auth/login');
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
   }
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', authUser.id)
-    .single();
 
   if (!user) {
-    redirect('/auth/login');
+    return null;
   }
-
-  return user as User;
-}
-
-export default async function AccountPage() {
-  const user = await getUser();
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">

@@ -2,21 +2,19 @@ import Link from 'next/link';
 import { ArrowRight, Play, Globe, Users } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import CameraCard from '@/components/stream/CameraCard';
-import { createClient } from '@/lib/supabase/server';
+import { getCameras } from '@/lib/firebase/firestore';
 import { Camera } from '@/types';
 
 async function getFeaturedCameras(): Promise<Camera[]> {
   try {
-    const supabase = await createClient();
-    const { data: cameras } = await supabase
-      .from('cameras')
-      .select('*')
-      .eq('status', 'active')
-      .eq('featured', true)
-      .order('viewer_count', { ascending: false })
-      .limit(6);
-
-    return (cameras as Camera[]) || [];
+    const cameras = await getCameras({
+      status: 'active',
+      featured: true,
+      orderByField: 'viewer_count',
+      orderDirection: 'desc',
+      limitCount: 6,
+    });
+    return cameras;
   } catch (error) {
     console.error('Error fetching featured cameras:', error);
     return [];

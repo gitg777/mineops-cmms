@@ -1,68 +1,53 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, Camera as CameraIcon, DollarSign, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { User, Camera } from '@/types';
+import { Camera } from '@/types';
+import { useUser } from '@/components/layout/UserProvider';
+import { getPlatformStats, getPendingCameras } from '@/lib/firebase/firestore';
 
-async function getUser(): Promise<User> {
-  const supabase = await createClient();
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+export default function AdminPage() {
+  const { user, isLoading: userLoading } = useUser();
+  const router = useRouter();
+  const [stats, setStats] = useState({ totalUsers: 0, totalCameras: 0, activeCameras: 0, pendingCameras: 0 });
+  const [pendingCameras, setPendingCameras] = useState<Camera[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!authUser) {
-    redirect('/auth/login');
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login');
+      return;
+    }
+
+    if (!userLoading && user && user.role !== 'admin') {
+      router.push('/');
+      return;
+    }
+
+    if (user && user.role === 'admin') {
+      Promise.all([getPlatformStats(), getPendingCameras()])
+        .then(([statsData, camerasData]) => {
+          setStats(statsData);
+          setPendingCameras(camerasData);
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [user, userLoading, router]);
+
+  if (userLoading || isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
   }
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', authUser.id)
-    .single();
-
-  const typedUser = user as unknown as User;
-  if (!typedUser || typedUser.role !== 'admin') {
-    redirect('/');
+  if (!user || user.role !== 'admin') {
+    return null;
   }
-
-  return typedUser;
-}
-
-async function getPlatformStats() {
-  const supabase = await createClient();
-
-  const [usersCount, camerasCount, activeCamerasCount, pendingCamerasCount] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }),
-    supabase.from('cameras').select('*', { count: 'exact', head: true }),
-    supabase.from('cameras').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('cameras').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-  ]);
-
-  return {
-    totalUsers: usersCount.count || 0,
-    totalCameras: camerasCount.count || 0,
-    activeCameras: activeCamerasCount.count || 0,
-    pendingCameras: pendingCamerasCount.count || 0,
-  };
-}
-
-async function getPendingCameras(): Promise<Camera[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from('cameras')
-    .select(`
-      *,
-      creator:users(full_name, email)
-    `)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-
-  return (data as Camera[]) || [];
-}
-
-export default async function AdminPage() {
-  await getUser();
-  const stats = await getPlatformStats();
-  const pendingCameras = await getPendingCameras();
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -169,16 +154,16 @@ export default async function AdminPage() {
                       {camera.name}
                     </h3>
                     <p className="text-sm text-earth-600 dark:text-earth-400 mb-2">
-                      {camera.lodge_name} • {camera.region}
+                      {camera.lodge_name} - {camera.region}
                     </p>
                     <p className="text-sm text-earth-700 dark:text-earth-300 mb-4">
                       {camera.description}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-earth-500">
-                      <span>Creator: {camera.creator?.full_name || camera.creator?.email}</span>
-                      <span>•</span>
+                      <span>Creator: {camera.creator?.full_name || 'Unknown'}</span>
+                      <span>-</span>
                       <span>Type: {camera.animal_type}</span>
-                      <span>•</span>
+                      <span>-</span>
                       <span>Submitted: {new Date(camera.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>

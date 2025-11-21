@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { signIn, signInWithGoogle } from '@/lib/firebase/auth';
 import toast from 'react-hot-toast';
 import { Mail, Lock } from 'lucide-react';
 
@@ -13,20 +13,13 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
+      await signIn(email, password);
       toast.success('Logged in successfully!');
       router.push('/');
       router.refresh();
@@ -39,14 +32,10 @@ export default function LoginForm() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
+      await signInWithGoogle();
+      toast.success('Logged in successfully!');
+      router.push('/');
+      router.refresh();
     } catch (error) {
       toast.error((error as Error).message || 'Failed to login with Google');
     }

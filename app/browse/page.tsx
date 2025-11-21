@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Filter } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import CameraCard from '@/components/stream/CameraCard';
-import { createClient } from '@/lib/supabase/client';
+import { getCameras } from '@/lib/firebase/firestore';
 import { Camera, Region, AnimalType } from '@/types';
 
 const REGIONS: Region[] = ['Africa', 'North America', 'South America', 'Asia', 'Europe', 'Australia', 'Antarctica'];
@@ -18,23 +18,20 @@ export default function BrowsePage() {
   const [selectedAnimalType, setSelectedAnimalType] = useState<AnimalType | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  const supabase = createClient();
-
   const fetchCameras = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('cameras')
-        .select('*')
-        .eq('status', 'active')
-        .order('viewer_count', { ascending: false });
-
-      setCameras(data || []);
+      const data = await getCameras({
+        status: 'active',
+        orderByField: 'viewer_count',
+        orderDirection: 'desc',
+      });
+      setCameras(data);
     } catch (error) {
       console.error('Error fetching cameras:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   const filterCameras = useCallback(() => {
     let filtered = cameras;

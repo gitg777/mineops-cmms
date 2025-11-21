@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { signUp, signInWithGoogle } from '@/lib/firebase/auth';
 import toast from 'react-hot-toast';
 import { Mail, Lock, User } from 'lucide-react';
 
@@ -14,26 +14,14 @@ export default function SignupForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      toast.success('Account created successfully! Please check your email to verify your account.');
+      await signUp(email, password, fullName);
+      toast.success('Account created successfully!');
       router.push('/');
       router.refresh();
     } catch (error) {
@@ -45,14 +33,10 @@ export default function SignupForm() {
 
   const handleGoogleSignup = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (error) throw error;
+      await signInWithGoogle();
+      toast.success('Account created successfully!');
+      router.push('/');
+      router.refresh();
     } catch (error) {
       toast.error((error as Error).message || 'Failed to sign up with Google');
     }
