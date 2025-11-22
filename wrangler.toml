@@ -1,0 +1,6 @@
+name = "mineops-cmms"
+compatibility_date = "2025-11-22"
+pages_build_output_dir = ".vercel/output/static"
+
+[observability]
+enabled = true
