@@ -4,13 +4,17 @@ This Next.js application is configured to deploy on Cloudflare Pages.
 
 ## Cloudflare Pages Configuration
 
+**Important**: This project requires Next.js 15.2.3+ for Cloudflare Pages compatibility.
+
 In your Cloudflare Pages project settings, use the following configuration:
 
 ### Build Settings
-- **Framework preset**: Next.js
+- **Framework preset**: Next.js (or None)
 - **Build command**: `npx @cloudflare/next-on-pages`
 - **Build output directory**: `.vercel/output/static`
 - **Node.js version**: 18 or later
+
+**Note**: If you're using Git integration, make sure to set the build output directory to `.vercel/output/static` in the build configuration.
 
 ### Environment Variables
 
@@ -83,6 +87,38 @@ service cloud.firestore {
 }
 ```
 
+## Deployment Options
+
+### Option 1: Deploy via Cloudflare Pages UI (Recommended)
+
+1. Build the project locally:
+   ```bash
+   npm run pages:build
+   ```
+
+2. The build output will be in `.vercel/output/static/`
+
+3. In Cloudflare Pages dashboard:
+   - Go to your Pages project
+   - Upload the contents of `.vercel/output/static/` folder
+   - Or connect your Git repository and use these build settings:
+     - **Build command**: `npx @cloudflare/next-on-pages`
+     - **Build output directory**: `.vercel/output/static`
+
+### Option 2: Deploy via CLI
+
+Requires Cloudflare API token. Set up authentication first:
+
+```bash
+# Set up Cloudflare API token
+export CLOUDFLARE_API_TOKEN=your_token_here
+
+# Build and deploy
+npm run deploy
+```
+
+To get an API token, visit: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+
 ## Local Development
 
 ```bash
@@ -95,11 +131,11 @@ npm run dev
 # Build for production
 npm run build
 
-# Preview Cloudflare Pages build
-npm run preview
+# Build for Cloudflare Pages
+npm run pages:build
 
-# Deploy to Cloudflare Pages (requires wrangler auth)
-npm run deploy
+# Preview Cloudflare Pages build locally
+npm run preview
 ```
 
 ## Troubleshooting
