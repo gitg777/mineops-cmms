@@ -7,9 +7,12 @@ import StreamChat from '@/components/stream/StreamChat';
 import { getCamera, getActiveAlerts } from '@/lib/firebase/firestore';
 // Types are inferred from the Firestore functions
 
-export default async function StreamPage({ params }: { params: { id: string } }) {
-  const camera = await getCamera(params.id);
-  const alerts = camera ? await getActiveAlerts(params.id) : [];
+export const runtime = 'edge';
+
+export default async function StreamPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const camera = await getCamera(id);
+  const alerts = camera ? await getActiveAlerts(id) : [];
 
   if (!camera || camera.status !== 'active') {
     notFound();
